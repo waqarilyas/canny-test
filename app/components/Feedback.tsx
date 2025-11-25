@@ -1,57 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const Feedback = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    details: "",
+    email: "",
+    name: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitStatus("idle");
 
-    // Load Canny SDK when modal opens
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (function (w: any, d: any, i: any, s: any) {
-      function l() {
-        if (!d.getElementById(i)) {
-          const f = d.getElementsByTagName(s)[0];
-          const e = d.createElement(s);
-          e.type = "text/javascript";
-          e.async = true;
-          e.src = "https://canny.io/sdk.js";
-          f.parentNode.insertBefore(e, f);
-        }
-      }
-      if (typeof w.Canny !== "function") {
-        // eslint-disable-next-line prefer-const, @typescript-eslint/no-explicit-any
-        let c: any = function () {
-          // eslint-disable-next-line prefer-rest-params
-          c.q.push(arguments);
-        };
-        c.q = [];
-        w.Canny = c;
-        if (d.readyState === "complete") {
-          l();
-        } else if (w.attachEvent) {
-          w.attachEvent("onload", l);
-        } else {
-          w.addEventListener("load", l, false);
-        }
-      }
-    })(window, document, "canny-jssdk", "script");
+    try {
+      // Submit to our API route (which calls Canny)
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          details: formData.details,
+          email: formData.email,
+          name: formData.name,
+        }),
+      });
 
-    // Render Canny board in widget
-    setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((window as any).Canny) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).Canny("render", {
-          boardToken: "9888edbf-f5bc-8c62-9820-31a02e338362",
-          basePath: null,
-          ssoToken: null,
-        });
+      if (response.ok) {
+        setSubmitStatus("success");
+        setFormData({ title: "", details: "", email: "", name: "" });
+        setTimeout(() => {
+          setIsOpen(false);
+          setSubmitStatus("idle");
+        }, 2000);
+      } else {
+        setSubmitStatus("error");
       }
-    }, 100);
-  }, [isOpen]);
+    } catch {
+      setSubmitStatus("error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -77,15 +76,16 @@ const Feedback = () => {
         <div
           className="fixed bottom-0 right-0 z-50 animate-slide-in"
           style={{
-            width: "min(600px, 100vw)",
-            height: "min(700px, 90vh)",
+            width: "min(500px, 100vw)",
+            height: "auto",
+            maxHeight: "90vh",
             margin: "0 20px 20px 0",
           }}
         >
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-2xl w-full h-full relative overflow-hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-2xl w-full relative overflow-hidden">
             {/* Header */}
-            <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between z-10">
-              <h3 className="font-semibold text-lg">Feedback</h3>
+            <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Send Feedback</h3>
               <button
                 onClick={() => setIsOpen(false)}
                 className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
@@ -107,10 +107,108 @@ const Feedback = () => {
               </button>
             </div>
 
-            {/* Canny Board Container */}
-            <div className="w-full h-full pt-16 pb-4 px-4">
-              <div data-canny className="w-full h-full" />
-            </div>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="title"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Title *
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-zinc-800 dark:text-white"
+                  placeholder="Brief summary of your feedback"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="details"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Details *
+                </label>
+                <textarea
+                  id="details"
+                  required
+                  rows={5}
+                  value={formData.details}
+                  onChange={(e) =>
+                    setFormData({ ...formData, details: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-zinc-800 dark:text-white resize-none"
+                  placeholder="Tell us more about your feedback..."
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Name *
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-zinc-800 dark:text-white"
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  Email *
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-zinc-800 dark:text-white"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              {submitStatus === "success" && (
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-lg text-sm">
+                  ✓ Thank you! Your feedback has been submitted.
+                </div>
+              )}
+
+              {submitStatus === "error" && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 rounded-lg text-sm">
+                  ✗ Something went wrong. Please try again.
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+              >
+                {isSubmitting ? "Sending..." : "Send Feedback"}
+              </button>
+            </form>
           </div>
         </div>
       )}
